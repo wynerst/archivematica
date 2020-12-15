@@ -69,8 +69,9 @@ scandir==1.10.0           # via -r requirements.in, pathlib2
 six==1.14.0               # via -r requirements.in, amclient, cryptography, django-extensions, josepy, metsrw, mozilla-django-oidc, opf-fido, pathlib2, pip-tools, pyopenssl, python-cas, python-dateutil
 unidecode==0.04.19        # via -r requirements.in
 urllib3==1.24.3           # via amclient, elasticsearch, requests
+wheel==0.35.1             # via -r requirements.in
 whitenoise==3.3.0         # via -r requirements.in
 
 # The following packages are considered to be unsafe in a requirements file:
 pip==20.3                 # via -r requirements.in, pip-tools
-setuptools==44.1.1        # via josepy, opf-fido
+setuptools==44.1.1        # via -r requirements.in, josepy, opf-fido
