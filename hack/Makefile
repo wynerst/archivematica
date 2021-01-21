@@ -115,7 +115,7 @@ bootstrap-dashboard-frontend:  ## Build front-end assets.
 		-e HOME=/tmp/yarn-config \
 		--rm \
 		--no-deps \
-		--user=$(CALLER_UID):$(CALLER_GID) \
+		--user $(CALLER_UID):$(CALLER_GID) \
 		--entrypoint yarn \
 			archivematica-dashboard \
 				--cwd=/src/src/dashboard/frontend install --frozen-lockfile
@@ -129,18 +129,18 @@ restart-am-services:  ## Restart Archivematica services: MCPServer, MCPClient, D
 compile-requirements-am:  ## Run pip-compile for Archivematica
 	docker-compose run --workdir /src \
 		-e XDG_CACHE_HOME=/tmp/pip-cache \
-		--rm  \
+		--rm \
 		--no-deps \
-		--user=$(CALLER_UID):$(CALLER_GID) \
+		--user $(CALLER_UID):$(CALLER_GID) \
 		--entrypoint bash archivematica-mcp-server \
 			-c "make pip-compile"
 
 compile-requirements-ss:  ## Run pip-compile for Storage Service
 	docker-compose run --workdir /src/requirements \
 		-e XDG_CACHE_HOME=/tmp/pip-cache \
-		--rm  \
+		--rm \
 		--no-deps \
-		--user=$(CALLER_UID):$(CALLER_GID) \
+		--user $(CALLER_UID):$(CALLER_GID) \
 		--entrypoint bash archivematica-storage-service \
 			-c "make clean && make all"
 
@@ -169,22 +169,62 @@ flush-test-dbs:
 test-all: test-mcp-server test-mcp-client test-dashboard test-storage-service  ## Run all tests.
 
 test-mcp-server:  ## Run MCPServer tests.
-	docker-compose run --workdir /src/src/MCPServer --rm --entrypoint=py.test archivematica-mcp-server -p no:cacheprovider --reuse-db -v $(TEST)
+	docker-compose run \
+		--user root \
+		--workdir /src/src/MCPServer \
+		--rm \
+		--no-deps \
+		--entrypoint py.test \
+		-e DJANGO_SETTINGS_MODULE=settings.test \
+			archivematica-mcp-server \
+				-p no:cacheprovider -v $(TEST)
 
 test-mcp-client:  ## Run MCPClient tests.
-	docker-compose run --workdir /src/src/MCPClient --rm --entrypoint=py.test archivematica-mcp-client -p no:cacheprovider --reuse-db -v $(TEST)
+	docker-compose run \
+		--user root \
+		--workdir /src/src/MCPClient \
+		--rm \
+		--no-deps \
+		--entrypoint py.test \
+		-e DJANGO_SETTINGS_MODULE=settings.test \
+			archivematica-mcp-client \
+				-p no:cacheprovider -v $(TEST)
 
 test-dashboard:  ## Run Dashboard tests.
-	docker-compose run --workdir /src/src/dashboard --rm --entrypoint=py.test archivematica-dashboard -p no:cacheprovider --reuse-db -v $(TEST)
+	docker-compose run \
+		--user root \
+		--workdir /src/src/dashboard \
+		--rm \
+		--no-deps \
+		--entrypoint py.test \
+		-e DJANGO_SETTINGS_MODULE=settings.test \
+			archivematica-dashboard \
+				-p no:cacheprovider -v $(TEST)
 
 test-storage-service:  ## Run Storage Service tests.
-	docker-compose run --workdir /src --rm --no-deps --entrypoint py.test -e "DJANGO_SETTINGS_MODULE=storage_service.settings.test" archivematica-storage-service -p no:cacheprovider --reuse-db -v $(TEST)
+	docker-compose run \
+		--user root \
+		--workdir /src \
+		--rm \
+		--no-deps \
+		--entrypoint py.test \
+		-e DJANGO_SETTINGS_MODULE=storage_service.settings.test \
+			archivematica-storage-service \
+				-p no:cacheprovider -v $(TEST)
 
 test-storage-service-integration:  ## Run Storage Service tests (including integration tests) using MySQL.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
 test-archivematica-common:  ## Run Archivematica Common tests.
-	docker-compose run --workdir /src/src/archivematicaCommon --rm --entrypoint py.test archivematica-mcp-client -p no:cacheprovider -p no:warnings --reuse-db -v $(TEST)
+	docker-compose run \
+		--user root \
+		--workdir /src/src/archivematicaCommon \
+		--rm \
+		--no-deps \
+		--entrypoint py.test \
+		-e DJANGO_SETTINGS_MODULE=settings.test \
+			archivematica-mcp-client \
+				-p no:cacheprovider -v $(TEST)
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \
