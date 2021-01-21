@@ -20,6 +20,18 @@ define compose_amauat
 	docker-compose -f docker-compose.yml -f docker-compose.acceptance-tests.yml $(1)
 endef
 
+define tox_env
+	docker-compose run \
+		--user $(CALLER_UID):$(CALLER_GID) \
+		--workdir $(1) \
+		--rm \
+		--no-deps \
+		--entrypoint tox \
+		-e LOGNAME=archivematica \
+			$(2) \
+				-e $(3)
+endef
+
 create-volumes:  ## Create external data volumes.
 	mkdir -p ${AM_PIPELINE_DATA}
 	docker volume create \
@@ -168,6 +180,8 @@ flush-test-dbs:
 
 test-all: test-mcp-server test-mcp-client test-dashboard test-storage-service  ## Run all tests.
 
+test-all-tox: test-mcp-server-tox test-mcp-client-tox test-dashboard-tox test-storage-service-tox test-archivematica-common-tox test-checkformigrations-tox  ## Run all tests.
+
 test-mcp-server:  ## Run MCPServer tests.
 	docker-compose run \
 		--user root \
@@ -178,6 +192,9 @@ test-mcp-server:  ## Run MCPServer tests.
 		-e DJANGO_SETTINGS_MODULE=settings.test \
 			archivematica-mcp-server \
 				-p no:cacheprovider -v $(TEST)
+
+test-mcp-server-tox:  ## Run MCPServer tests.
+	$(call tox_env, /src, archivematica-mcp-server, mcpserver)
 
 test-mcp-client:  ## Run MCPClient tests.
 	docker-compose run \
@@ -190,6 +207,10 @@ test-mcp-client:  ## Run MCPClient tests.
 			archivematica-mcp-client \
 				-p no:cacheprovider -v $(TEST)
 
+test-mcp-client-tox:  ## Run MCPClient tests.
+	$(call tox_env, /src, archivematica-mcp-client, mcpclient)
+	$(call tox_env, /src, archivematica-mcp-client, mcpclient-ensure-no-mutable-globals)
+
 test-dashboard:  ## Run Dashboard tests.
 	docker-compose run \
 		--user root \
@@ -200,6 +221,9 @@ test-dashboard:  ## Run Dashboard tests.
 		-e DJANGO_SETTINGS_MODULE=settings.test \
 			archivematica-dashboard \
 				-p no:cacheprovider -v $(TEST)
+
+test-dashboard-tox:  ## Run Dashboard tests.
+	$(call tox_env, /src, archivematica-dashboard, dashboard)
 
 test-storage-service:  ## Run Storage Service tests.
 	docker-compose run \
@@ -215,6 +239,9 @@ test-storage-service:  ## Run Storage Service tests.
 test-storage-service-integration:  ## Run Storage Service tests (including integration tests) using MySQL.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
+test-storage-service-tox:  ## Run Storage Service tests.
+	$(call tox_env, /am-src, archivematica-storage-service, storage-service)
+
 test-archivematica-common:  ## Run Archivematica Common tests.
 	docker-compose run \
 		--user root \
@@ -225,6 +252,13 @@ test-archivematica-common:  ## Run Archivematica Common tests.
 		-e DJANGO_SETTINGS_MODULE=settings.test \
 			archivematica-mcp-client \
 				-p no:cacheprovider -v $(TEST)
+
+test-archivematica-common-tox:  ## Run Archivematica Common tests.
+	$(call tox_env, /src, archivematica-dashboard, archivematica-common)
+
+test-checkformigrations-tox:  ## Check there are no pending migrations.
+	$(call tox_env, /src, archivematica-dashboard, checkformigrations-dashboard)
+	$(call tox_env, /am-src, archivematica-storage-service, checkformigrations-storage-service)
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \
