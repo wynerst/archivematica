@@ -20,16 +20,21 @@ define compose_amauat
 	docker-compose -f docker-compose.yml -f docker-compose.acceptance-tests.yml $(1)
 endef
 
+define compose_tests
+	docker-compose -f docker-compose.tests.yml $(1)
+endef
+
 define tox_env
-	docker-compose run \
-		--user $(CALLER_UID):$(CALLER_GID) \
-		--workdir $(1) \
-		--rm \
-		--no-deps \
-		--entrypoint tox \
-		-e LOGNAME=archivematica \
-			$(2) \
-				-e $(3)
+	$(call compose_tests, \
+		run \
+			--user $(CALLER_UID):$(CALLER_GID) \
+			--workdir /src \
+			--rm \
+			--no-deps \
+			--entrypoint tox \
+			-e LOGNAME=archivematica \
+				archivematica-tests \
+					$(1))
 endef
 
 create-volumes:  ## Create external data volumes.
@@ -180,7 +185,22 @@ flush-test-dbs:
 
 test-all: test-mcp-server test-mcp-client test-dashboard test-storage-service  ## Run all tests.
 
-test-all-tox: test-mcp-server-tox test-mcp-client-tox test-dashboard-tox test-storage-service-tox test-archivematica-common-tox test-checkformigrations-tox  ## Run all tests.
+test-build:  ## Build archivematica-tests image.
+	$(call compose_tests, \
+		build archivematica-tests)
+
+PARALLEL_TESTS ?= 2
+test-all-tox: test-build  ## Run all tests in parallel with no verbosity XXX. Pass PARALLEL_TESTS=n to XXX
+	$(call tox_env, \
+		-e mcpserver \
+		-e mcpclient \
+		-e mcpclient-ensure-no-mutable-globals \
+		-e dashboard \
+		-e storage-service \
+		-e archivematica-common \
+		-e checkformigrations-dashboard \
+		-e checkformigrations-storage-service \
+		--parallel $(PARALLEL_TESTS))
 
 test-mcp-server:  ## Run MCPServer tests.
 	docker-compose run \
@@ -193,8 +213,9 @@ test-mcp-server:  ## Run MCPServer tests.
 			archivematica-mcp-server \
 				-p no:cacheprovider -v $(TEST)
 
-test-mcp-server-tox:  ## Run MCPServer tests.
-	$(call tox_env, /src, archivematica-mcp-server, mcpserver)
+test-mcp-server-tox: test-build  ## Run MCPServer tests.
+	$(call tox_env, \
+		-e mcpserver)
 
 test-mcp-client:  ## Run MCPClient tests.
 	docker-compose run \
@@ -207,9 +228,10 @@ test-mcp-client:  ## Run MCPClient tests.
 			archivematica-mcp-client \
 				-p no:cacheprovider -v $(TEST)
 
-test-mcp-client-tox:  ## Run MCPClient tests.
-	$(call tox_env, /src, archivematica-mcp-client, mcpclient)
-	$(call tox_env, /src, archivematica-mcp-client, mcpclient-ensure-no-mutable-globals)
+test-mcp-client-tox: test-build  ## Run MCPClient tests.
+	$(call tox_env, \
+		-e mcpclient \
+		-e mcpclient-ensure-no-mutable-globals)
 
 test-dashboard:  ## Run Dashboard tests.
 	docker-compose run \
@@ -222,8 +244,9 @@ test-dashboard:  ## Run Dashboard tests.
 			archivematica-dashboard \
 				-p no:cacheprovider -v $(TEST)
 
-test-dashboard-tox:  ## Run Dashboard tests.
-	$(call tox_env, /src, archivematica-dashboard, dashboard)
+test-dashboard-tox: test-build  ## Run Dashboard tests.
+	$(call tox_env, \
+		-e dashboard)
 
 test-storage-service:  ## Run Storage Service tests.
 	docker-compose run \
@@ -239,8 +262,9 @@ test-storage-service:  ## Run Storage Service tests.
 test-storage-service-integration:  ## Run Storage Service tests (including integration tests) using MySQL.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
-test-storage-service-tox:  ## Run Storage Service tests.
-	$(call tox_env, /am-src, archivematica-storage-service, storage-service)
+test-storage-service-tox: test-build  ## Run Storage Service tests.
+	$(call tox_env, \
+		-e storage-service)
 
 test-archivematica-common:  ## Run Archivematica Common tests.
 	docker-compose run \
@@ -253,12 +277,14 @@ test-archivematica-common:  ## Run Archivematica Common tests.
 			archivematica-mcp-client \
 				-p no:cacheprovider -v $(TEST)
 
-test-archivematica-common-tox:  ## Run Archivematica Common tests.
-	$(call tox_env, /src, archivematica-dashboard, archivematica-common)
+test-archivematica-common-tox: test-build  ## Run Archivematica Common tests.
+	$(call tox_env, \
+		-e archivematica-common)
 
-test-checkformigrations-tox:  ## Check there are no pending migrations.
-	$(call tox_env, /src, archivematica-dashboard, checkformigrations-dashboard)
-	$(call tox_env, /am-src, archivematica-storage-service, checkformigrations-storage-service)
+test-checkformigrations-tox: test-build  ## Check there are no pending migrations.
+	$(call tox_env, \
+		-e checkformigrations-dashboard \
+		-e checkformigrations-storage-service)
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \

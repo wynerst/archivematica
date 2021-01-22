@@ -1,0 +1,12 @@
+---
+version: "2.1"
+
+services:
+  archivematica-tests:
+    build:
+      context: "../"
+      dockerfile: "hack/Dockerfile"
+      args:
+        TARGET: "base"
+    volumes:
+      - "../:/src"
