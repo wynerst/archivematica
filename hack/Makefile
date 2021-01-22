@@ -32,7 +32,6 @@ define tox_env
 			--rm \
 			--no-deps \
 			--entrypoint tox \
-			-e LOGNAME=archivematica \
 				archivematica-tests \
 					$(1))
 endef
@@ -285,6 +284,10 @@ test-checkformigrations-tox: test-build  ## Check there are no pending migration
 	$(call tox_env, \
 		-e checkformigrations-dashboard \
 		-e checkformigrations-storage-service)
+
+test-linting-tox: test-build  ## Check linting.
+	$(call tox_env, \
+		-e linting)
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \
