@@ -14,7 +14,7 @@ CALLER_GID=$(shell id -g)
 
 SRCDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../src)
 
-TEST ?= .
+TOXARGS ?=
 
 define compose_amauat
 	docker-compose -f docker-compose.yml -f docker-compose.acceptance-tests.yml $(1)
@@ -24,7 +24,9 @@ define compose_tests
 	docker-compose -f docker-compose.tests.yml $(1)
 endef
 
-define tox_env
+empty :=
+space := $(empty) $(empty)
+define toxenvs
 	$(call compose_tests, \
 		run \
 			--user $(CALLER_UID):$(CALLER_GID) \
@@ -33,7 +35,8 @@ define tox_env
 			--no-deps \
 			--entrypoint tox \
 				archivematica-tests \
-					$(1))
+					$(subst $(space), -e ,$(space)$(1)) \
+					$(TOXARGS))
 endef
 
 create-volumes:  ## Create external data volumes.
@@ -86,7 +89,7 @@ makemigrations-ss:
 			archivematica-storage-service \
 				makemigrations
 
-manage-dashboard:  ## Run Django /manage.py on Dashbaord, suppling <command> [options] as value to ARG, e.g., `make manage-ss ARG=shell`
+manage-dashboard:  ## Run Django /manage.py on Dashboard, suppling <command> [options] as value to ARG, e.g., `make manage-ss ARG=shell`
 	docker-compose run \
 		--rm \
 		--entrypoint /src/src/dashboard/src/manage.py \
@@ -182,112 +185,43 @@ flush-logs:  ## Delete container logs - requires root privileges.
 flush-test-dbs:
 	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e "DROP DATABASE IF EXISTS test_MCP; DROP DATABASE IF EXISTS test_SS;"
 
-test-all: test-mcp-server test-mcp-client test-dashboard test-storage-service  ## Run all tests.
-
 test-build:  ## Build archivematica-tests image.
-	$(call compose_tests, \
-		build archivematica-tests)
+	$(call compose_tests,build archivematica-tests)
 
-PARALLEL_TESTS ?= 2
-test-all-tox: test-build  ## Run all tests in parallel with no verbosity XXX. Pass PARALLEL_TESTS=n to XXX
-	$(call tox_env, \
-		-e mcpserver \
-		-e mcpclient \
-		-e mcpclient-ensure-no-mutable-globals \
-		-e dashboard \
-		-e storage-service \
-		-e archivematica-common \
-		-e checkformigrations-dashboard \
-		-e checkformigrations-storage-service \
-		--parallel $(PARALLEL_TESTS))
+__TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common checkformigrations-dashboard checkformigrations-storage-service
+test-all: test-build  ## Run all tests. Use `make test-all TOXARGS=--parallel` to run them in parallel.
+	$(call toxenvs,$(__TOXENVS_ALL))
 
-test-mcp-server:  ## Run MCPServer tests.
-	docker-compose run \
-		--user root \
-		--workdir /src/src/MCPServer \
-		--rm \
-		--no-deps \
-		--entrypoint py.test \
-		-e DJANGO_SETTINGS_MODULE=settings.test \
-			archivematica-mcp-server \
-				-p no:cacheprovider -v $(TEST)
+__TOXENVS_MCPSERVER := mcpserver
+test-mcp-server: test-build  ## Run MCPServer tests.
+	$(call toxenvs,$(__TOXENVS_MCPSERVER))
 
-test-mcp-server-tox: test-build  ## Run MCPServer tests.
-	$(call tox_env, \
-		-e mcpserver)
+__TOXENVS_MCPCLIENT = mcpclient mcpclient-ensure-no-mutable-globals
+test-mcp-client: test-build  ## Run MCPClient tests.
+	$(call toxenvs,$(__TOXENVS_MCPCLIENT))
 
-test-mcp-client:  ## Run MCPClient tests.
-	docker-compose run \
-		--user root \
-		--workdir /src/src/MCPClient \
-		--rm \
-		--no-deps \
-		--entrypoint py.test \
-		-e DJANGO_SETTINGS_MODULE=settings.test \
-			archivematica-mcp-client \
-				-p no:cacheprovider -v $(TEST)
+__TOXENVS_DASHBOARD = dashboard
+test-dashboard: test-build  ## Run Dashboard tests.
+	$(call toxenvs,$(__TOXENVS_DASHBOARD))
 
-test-mcp-client-tox: test-build  ## Run MCPClient tests.
-	$(call tox_env, \
-		-e mcpclient \
-		-e mcpclient-ensure-no-mutable-globals)
-
-test-dashboard:  ## Run Dashboard tests.
-	docker-compose run \
-		--user root \
-		--workdir /src/src/dashboard \
-		--rm \
-		--no-deps \
-		--entrypoint py.test \
-		-e DJANGO_SETTINGS_MODULE=settings.test \
-			archivematica-dashboard \
-				-p no:cacheprovider -v $(TEST)
-
-test-dashboard-tox: test-build  ## Run Dashboard tests.
-	$(call tox_env, \
-		-e dashboard)
-
-test-storage-service:  ## Run Storage Service tests.
-	docker-compose run \
-		--user root \
-		--workdir /src \
-		--rm \
-		--no-deps \
-		--entrypoint py.test \
-		-e DJANGO_SETTINGS_MODULE=storage_service.settings.test \
-			archivematica-storage-service \
-				-p no:cacheprovider -v $(TEST)
+__TOXENVS_STORAGE_SERVICE = storage-service
+test-storage-service: test-build  ## Run Storage Service tests.
+	$(call toxenvs,$(__TOXENVS_STORAGE_SERVICE))
 
 test-storage-service-integration:  ## Run Storage Service tests (including integration tests) using MySQL.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
-test-storage-service-tox: test-build  ## Run Storage Service tests.
-	$(call tox_env, \
-		-e storage-service)
+__TOXENVS_ARCHIVEMATICA_COMMON = archivematica-common
+test-archivematica-common: test-build  ## Run Archivematica Common tests.
+	$(call toxenvs,$(__TOXENVS_ARCHIVEMATICA_COMMON))
 
-test-archivematica-common:  ## Run Archivematica Common tests.
-	docker-compose run \
-		--user root \
-		--workdir /src/src/archivematicaCommon \
-		--rm \
-		--no-deps \
-		--entrypoint py.test \
-		-e DJANGO_SETTINGS_MODULE=settings.test \
-			archivematica-mcp-client \
-				-p no:cacheprovider -v $(TEST)
+__TOXENVS_CHECKFORMIGRATIONS = checkformigrations-dashboard checkformigrations-storage-service
+test-checkformigrations: test-build  ## Check there are no pending migrations.
+	$(call toxenvs,$(__TOXENVS_CHECKFORMIGRATIONS))
 
-test-archivematica-common-tox: test-build  ## Run Archivematica Common tests.
-	$(call tox_env, \
-		-e archivematica-common)
-
-test-checkformigrations-tox: test-build  ## Check there are no pending migrations.
-	$(call tox_env, \
-		-e checkformigrations-dashboard \
-		-e checkformigrations-storage-service)
-
-test-linting-tox: test-build  ## Check linting.
-	$(call tox_env, \
-		-e linting)
+__TOXENVS_LINTING = linting
+test-linting: test-build  ## Check linting.
+	$(call toxenvs,$(__TOXENVS_LINTING))
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \
