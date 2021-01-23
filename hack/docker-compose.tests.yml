@@ -7,6 +7,6 @@ services:
       context: "../"
       dockerfile: "hack/Dockerfile"
       args:
-        TARGET: "base"
+        TARGET: "archivematica-tests"
     volumes:
       - "../:/src"
