@@ -463,6 +463,7 @@ removed unless you use `--reuse-db`, e.g.: you can use the following command to
 run the MCPClient tests.
 
     make test-mcp-client TOXARGS="-- --reuse-db --exitfirst"
+    make test-mcp-client-integration TOXARGS="-- --reuse-db --exitfirst"
 
 The difference is noticeable.
 

@@ -21,7 +21,7 @@ define compose_amauat
 endef
 
 define compose_tests
-	docker-compose -f docker-compose.tests.yml $(1)
+	docker-compose -f docker-compose.yml -f docker-compose.tests.yml $(1)
 endef
 
 empty :=
@@ -33,6 +33,19 @@ define toxenvs
 			--workdir /src \
 			--rm \
 			--no-deps \
+			--entrypoint tox \
+				archivematica-tests \
+					$(subst $(space), -e ,$(space)$(1)) \
+					$(TOXARGS))
+endef
+define toxenvs_integration
+	$(call compose_tests, \
+		run \
+			-e PRE_COMMAND="{toxinidir}/hack/wait-for-it.sh mysql:3306 --timeout=30" \
+			-e DJANGO_SETTINGS_MODULE=settings.testmysql \
+			--user $(CALLER_UID):$(CALLER_GID) \
+			--workdir /src \
+			--rm \
 			--entrypoint tox \
 				archivematica-tests \
 					$(subst $(space), -e ,$(space)$(1)) \
@@ -182,38 +195,74 @@ flush-search:  ## Delete Elasticsearch indices.
 flush-logs:  ## Delete container logs - requires root privileges.
 	@./helpers/flush-docker-logs.sh
 
+define drop_db
+	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e 'DROP DATABASE IF EXISTS `$(1)`;'
+endef
+
 flush-test-dbs:
-	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e "DROP DATABASE IF EXISTS test_MCP; DROP DATABASE IF EXISTS test_SS;"
+	$(call drop_db,DASHBOARDTEST)
+	$(call drop_db,MCPCLIENTTEST)
+	$(call drop_db,MCPSERVERTEST)
+	$(call drop_db,SSTEST)
+	$(call drop_db,test_DASHBOARDTEST)
+	$(call drop_db,test_DASHBOARDTEST_archivematica-common)
+	$(call drop_db,test_DASHBOARDTEST_dashboard)
+	$(call drop_db,test_MCP)
+	$(call drop_db,test_MCPCLIENTTEST)
+	$(call drop_db,test_MCPCLIENTTEST_mcpclient)
+	$(call drop_db,test_MCPSERVERTEST)
+	$(call drop_db,test_MCPSERVERTEST_mcpserver)
+	$(call drop_db,test_SS)
+	$(call drop_db,test_SSTEST)
+	$(call drop_db,test_SSTEST_storage-service)
 
 test-build:  ## Build archivematica-tests image.
 	$(call compose_tests,build archivematica-tests)
 
-__TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common checkformigrations-dashboard checkformigrations-storage-service
+test-build-integration:  ## Build archivematica-tests image.
+	$(call compose_tests,build mysql archivematica-tests)
+
+__TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common
 test-all: test-build  ## Run all tests. Use `make test-all TOXARGS=--parallel` to run them in parallel.
 	$(call toxenvs,$(__TOXENVS_ALL))
 
+test-all-integration: test-build-integration  ## Run all tests with MySQL. Use `make test-all TOXARGS=--parallel` to run them in parallel.
+	$(call toxenvs_integration,$(__TOXENVS_ALL))
+
 __TOXENVS_MCPSERVER := mcpserver
-test-mcp-server: test-build  ## Run MCPServer tests.
+test-mcp-server: test-build  ## Run MCPServer tests. Use `make test-mcp-server TOXARGS=-- --reuse-db` to keep the database between runs.
 	$(call toxenvs,$(__TOXENVS_MCPSERVER))
 
+test-mcp-server-integration: test-build-integration  ## Run MCPServer tests using MySQL. Use `make test-mcp-server-integration TOXARGS=-- --reuse-db` to keep the database between runs.
+	$(call toxenvs_integration,$(__TOXENVS_MCPSERVER))
+
 __TOXENVS_MCPCLIENT = mcpclient mcpclient-ensure-no-mutable-globals
-test-mcp-client: test-build  ## Run MCPClient tests.
+test-mcp-client: test-build  ## Run MCPClient tests. Use `make test-mcp-client TOXARGS=-- --reuse-db` to keep the database between runs.
 	$(call toxenvs,$(__TOXENVS_MCPCLIENT))
 
+test-mcp-client-integration: test-build-integration  ## Run MCPClient tests using MySQL. Use `make test-mcp-client-integration TOXARGS=-- --reuse-db` to keep the database between runs.
+	$(call toxenvs_integration,$(__TOXENVS_MCPCLIENT))
+
 __TOXENVS_DASHBOARD = dashboard
-test-dashboard: test-build  ## Run Dashboard tests.
+test-dashboard: test-build  ## Run Dashboard tests. Use `make test-dashboard TOXARGS=-- --reuse-db` to keep the database between runs.
 	$(call toxenvs,$(__TOXENVS_DASHBOARD))
 
+test-dashboard-integration: test-build-integration  ## Run Dashboard tests using MySQL. Use `make test-dashboard-integration TOXARGS=-- --reuse-db` to keep the database between runs.
+	$(call toxenvs_integration,$(__TOXENVS_DASHBOARD))
+
 __TOXENVS_STORAGE_SERVICE = storage-service
-test-storage-service: test-build  ## Run Storage Service tests.
+test-storage-service: test-build  ## Run Storage Service tests. Use `make test-storage-service TOXARGS=-- --reuse-db` to keep the database between runs.
 	$(call toxenvs,$(__TOXENVS_STORAGE_SERVICE))
 
 test-storage-service-integration:  ## Run Storage Service tests (including integration tests) using MySQL.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
 __TOXENVS_ARCHIVEMATICA_COMMON = archivematica-common
-test-archivematica-common: test-build  ## Run Archivematica Common tests.
+test-archivematica-common: test-build  ## Run Archivematica Common tests. Use `make test-archivematica-common TOXARGS=-- --reuse-db` to keep the database between runs.
 	$(call toxenvs,$(__TOXENVS_ARCHIVEMATICA_COMMON))
+
+test-archivematica-common-integration: test-build-integration  ## Run Archivematica Common tests using MySQL. Use `make test-archivematica-common-integration TOXARGS=-- --reuse-db` to keep the database between runs.
+	$(call toxenvs_integration,$(__TOXENVS_ARCHIVEMATICA_COMMON))
 
 __TOXENVS_CHECKFORMIGRATIONS = checkformigrations-dashboard checkformigrations-storage-service
 test-checkformigrations: test-build  ## Check there are no pending migrations.
