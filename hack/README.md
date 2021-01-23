@@ -463,7 +463,6 @@ removed unless you use `--reuse-db`, e.g.: you can use the following command to
 run the MCPClient tests.
 
     make test-mcp-client TOXARGS="-- --reuse-db --exitfirst"
-    docker-compose run --no-deps --user=root --workdir /src/MCPClient --rm --entrypoint=py.test archivematica-mcp-client --reuse-db --exitfirst
 
 The difference is noticeable.
 
