@@ -201,6 +201,7 @@ define drop_db
 endef
 
 flush-test-dbs:
+	@find $(AMDIR) -type f -name '*-test.db*' -delete
 	$(call drop_db,DASHBOARDTEST)
 	$(call drop_db,MCPCLIENTTEST)
 	$(call drop_db,MCPSERVERTEST)
@@ -216,7 +217,6 @@ flush-test-dbs:
 	$(call drop_db,test_SS)
 	$(call drop_db,test_SSTEST)
 	$(call drop_db,test_SSTEST_storage-service)
-	@find $(AMDIR) -type f -name '*-test.db*' -delete
 
 test-build:  ## Build archivematica-tests image.
 	$(call compose_tests,build archivematica-tests)

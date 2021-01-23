@@ -27,3 +27,4 @@ src/dashboard/src/media/js/build
 
 # Sqlite DBs
 *.db
+*-test.db*
