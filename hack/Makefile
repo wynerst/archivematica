@@ -13,6 +13,7 @@ CALLER_UID=$(shell id -u)
 CALLER_GID=$(shell id -g)
 
 SRCDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../src)
+AMDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
 
 TOXARGS ?=
 
@@ -215,6 +216,7 @@ flush-test-dbs:
 	$(call drop_db,test_SS)
 	$(call drop_db,test_SSTEST)
 	$(call drop_db,test_SSTEST_storage-service)
+	@find $(AMDIR) -type f -name '*-test.db*' -delete
 
 test-build:  ## Build archivematica-tests image.
 	$(call compose_tests,build archivematica-tests)
