@@ -27,9 +27,7 @@ class Config(object):
     """EnvConfigParser wrapper"""
 
     def __init__(self, env_prefix, attrs):
-
         self.config = EnvConfigParser(prefix=env_prefix)
-
         self.attrs = attrs
 
     INVALID_ATTR_MSG = (
