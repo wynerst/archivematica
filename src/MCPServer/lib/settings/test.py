@@ -21,20 +21,13 @@
 
 from __future__ import absolute_import
 
-import os
-
-from appconfig import get_test_database_path
-
 from .common import *
-
-__BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-__TEST_DATABASE_PATH = get_test_database_path(__BASE_DIR)
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": __TEST_DATABASE_PATH,
-        "TEST": {"NAME": __TEST_DATABASE_PATH},
+        "NAME": "archivematica-test.db",
+        "TEST": {"NAME": "archivematica-test.db"},
         "USER": "",
         "PASSWORD": "",
         "HOST": "",

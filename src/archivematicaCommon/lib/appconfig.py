@@ -14,7 +14,6 @@ where a specific parsing process can be defined. Those callbacks must accept the
 current appconfig Config object and the section.
 """
 from __future__ import absolute_import
-import os
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -152,15 +151,3 @@ def process_watched_directory_interval(config, section):
     ]
 
     return config.get_from_opts_list("watch_directory_interval", options, default=1)
-
-
-def get_test_database_path(base_dir, base_name="archivematica-test.db"):
-    """Get a path for a SQLite test database.
-
-    The base directory and name for the SQLite file can be controlled
-    through environment variables. This is used in the tox setup.
-    """
-    return os.path.join(
-        os.environ.get("TEST_DB_DIR", base_dir),
-        os.environ.get("TEST_DB_FILENAME", base_name),
-    )

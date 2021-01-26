@@ -13,7 +13,6 @@ CALLER_UID=$(shell id -u)
 CALLER_GID=$(shell id -g)
 
 SRCDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../src)
-AMDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
 
 TOXARGS ?=
 
@@ -28,18 +27,6 @@ endef
 empty :=
 space := $(empty) $(empty)
 define toxenvs
-	$(call compose_tests, \
-		run \
-			--user $(CALLER_UID):$(CALLER_GID) \
-			--workdir /src \
-			--rm \
-			--no-deps \
-			--entrypoint tox \
-				archivematica-tests \
-					$(subst $(space), -e ,$(space)$(1)) \
-					$(TOXARGS))
-endef
-define toxenvs_integration
 	$(call compose_tests, \
 		run \
 			-e PRE_COMMAND="{toxinidir}/hack/wait-for-it.sh mysql:3306 --timeout=30" \
@@ -196,78 +183,58 @@ flush-search:  ## Delete Elasticsearch indices.
 flush-logs:  ## Delete container logs - requires root privileges.
 	@./helpers/flush-docker-logs.sh
 
+define create_db
+	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e '\
+		DROP DATABASE IF EXISTS `$(1)`; \
+		CREATE DATABASE `$(1)`; \
+		GRANT ALL ON `$(1)`.* TO "archivematica"@"%" IDENTIFIED BY "demo";'
+endef
+
 define drop_db
 	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e 'DROP DATABASE IF EXISTS `$(1)`;'
 endef
 
-flush-test-dbs:
-	@find $(AMDIR) -type f -name '*-test.db*' -delete
-	$(call drop_db,DASHBOARDTEST)
-	$(call drop_db,MCPCLIENTTEST)
-	$(call drop_db,MCPSERVERTEST)
-	$(call drop_db,SSTEST)
-	$(call drop_db,test_DASHBOARDTEST)
-	$(call drop_db,test_DASHBOARDTEST_archivematica-common)
-	$(call drop_db,test_DASHBOARDTEST_dashboard)
-	$(call drop_db,test_MCP)
-	$(call drop_db,test_MCPCLIENTTEST)
-	$(call drop_db,test_MCPCLIENTTEST_mcpclient)
-	$(call drop_db,test_MCPSERVERTEST)
-	$(call drop_db,test_MCPSERVERTEST_mcpserver)
-	$(call drop_db,test_SS)
-	$(call drop_db,test_SSTEST)
-	$(call drop_db,test_SSTEST_storage-service)
+# These include the database names used in the settings.testmysql
+# modules plus the prefixed and suffixed variations used by Django and
+# tox
+__TEST_DBS := DASHBOARDTEST MCPCLIENTTEST MCPSERVERTEST SSTEST test_DASHBOARDTEST test_DASHBOARDTEST_archivematica-common test_DASHBOARDTEST_dashboard test_MCP test_MCPCLIENTTEST test_MCPCLIENTTEST_mcpclient test_MCPSERVERTEST test_MCPSERVERTEST_mcpserver test_SS test_SSTEST test_SSTEST_storage-service
+flush-test-dbs: test-build
+	$(foreach test_db,$(__TEST_DBS),$(call drop_db,$(test_db));)
 
 test-build:  ## Build archivematica-tests image.
-	$(call compose_tests,build archivematica-tests)
-
-test-build-integration:  ## Build archivematica-tests image.
 	$(call compose_tests,build mysql archivematica-tests)
 
 __TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common
-test-all: test-build  ## Run all tests. Use `make test-all TOXARGS=--parallel` to run them in parallel.
+test-all: test-build  ## Run all tests.
 	$(call toxenvs,$(__TOXENVS_ALL))
 
-test-all-integration: test-build-integration  ## Run all tests with MySQL. Use `make test-all TOXARGS=--parallel` to run them in parallel.
-	$(call toxenvs_integration,$(__TOXENVS_ALL))
-
 __TOXENVS_MCPSERVER := mcpserver
-test-mcp-server: test-build  ## Run MCPServer tests. Use `make test-mcp-server TOXARGS=-- --reuse-db` to keep the database between runs.
+test-mcp-server: test-build  ## Run MCPServer tests.
 	$(call toxenvs,$(__TOXENVS_MCPSERVER))
 
-test-mcp-server-integration: test-build-integration  ## Run MCPServer tests using MySQL. Use `make test-mcp-server-integration TOXARGS=-- --reuse-db` to keep the database between runs.
-	$(call toxenvs_integration,$(__TOXENVS_MCPSERVER))
-
 __TOXENVS_MCPCLIENT = mcpclient mcpclient-ensure-no-mutable-globals
-test-mcp-client: test-build  ## Run MCPClient tests. Use `make test-mcp-client TOXARGS=-- --reuse-db` to keep the database between runs.
+test-mcp-client: test-build  ## Run MCPClient tests.
 	$(call toxenvs,$(__TOXENVS_MCPCLIENT))
 
-test-mcp-client-integration: test-build-integration  ## Run MCPClient tests using MySQL. Use `make test-mcp-client-integration TOXARGS=-- --reuse-db` to keep the database between runs.
-	$(call toxenvs_integration,$(__TOXENVS_MCPCLIENT))
-
 __TOXENVS_DASHBOARD = dashboard
-test-dashboard: test-build  ## Run Dashboard tests. Use `make test-dashboard TOXARGS=-- --reuse-db` to keep the database between runs.
+test-dashboard: test-build  ## Run Dashboard tests.
 	$(call toxenvs,$(__TOXENVS_DASHBOARD))
 
-test-dashboard-integration: test-build-integration  ## Run Dashboard tests using MySQL. Use `make test-dashboard-integration TOXARGS=-- --reuse-db` to keep the database between runs.
-	$(call toxenvs_integration,$(__TOXENVS_DASHBOARD))
-
 __TOXENVS_STORAGE_SERVICE = storage-service
-test-storage-service: test-build  ## Run Storage Service tests. Use `make test-storage-service TOXARGS=-- --reuse-db` to keep the database between runs.
+test-storage-service: test-build  ## Run Storage Service tests.
 	$(call toxenvs,$(__TOXENVS_STORAGE_SERVICE))
 
-test-storage-service-integration:  ## Run Storage Service tests (including integration tests) using MySQL.
+test-storage-service-integration:  ## Run Storage Service unit and integration tests using MySQL and MinIO.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
 __TOXENVS_ARCHIVEMATICA_COMMON = archivematica-common
-test-archivematica-common: test-build  ## Run Archivematica Common tests. Use `make test-archivematica-common TOXARGS=-- --reuse-db` to keep the database between runs.
+test-archivematica-common: test-build  ## Run Archivematica Common tests.
 	$(call toxenvs,$(__TOXENVS_ARCHIVEMATICA_COMMON))
-
-test-archivematica-common-integration: test-build-integration  ## Run Archivematica Common tests using MySQL. Use `make test-archivematica-common-integration TOXARGS=-- --reuse-db` to keep the database between runs.
-	$(call toxenvs_integration,$(__TOXENVS_ARCHIVEMATICA_COMMON))
 
 __TOXENVS_CHECKFORMIGRATIONS = checkformigrations-dashboard checkformigrations-storage-service
 test-checkformigrations: test-build  ## Check there are no pending migrations.
+	$(call create_db,DASHBOARDTEST)
+	$(call create_db,SSTEST)
 	$(call toxenvs,$(__TOXENVS_CHECKFORMIGRATIONS))
 
 __TOXENVS_LINTING = linting
