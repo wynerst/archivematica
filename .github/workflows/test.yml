@@ -5,56 +5,35 @@ on:
   push:
     branches:
       - "qa/**"
-      - "stable/**"
+      - "dev/issue-1140-test-settings"
 jobs:
   test:
-    name: "Test ${{ matrix.name }}"
+    name: "Test ${{ matrix.rule }}"
     runs-on: "ubuntu-18.04"
     strategy:
       matrix:
-        include:
-          - name: "py27"
-            python-version: "2.7"
-            toxenv: "py27"
-          - name: "py27-mcpserver"
-            python-version: "2.7"
-            toxenv: "mcpserver"
-          - name: "py27-checkformigrations"
-            python-version: "2.7"
-            toxenv: "checkformigrations"
+        rule:
+          - mcpserver
+          - mcpclient
+          - dashboard
+          - storage-service
+          - archivematica-common
+          - checkformigrations
     steps:
       - name: "Check out repository"
         uses: "actions/checkout@v2"
-      - name: "Set up Python ${{ matrix.python-version }}"
-        uses: "actions/setup-python@v2"
         with:
-          python-version: "${{ matrix.python-version }}"
-      - name: "Install OS packages"
+          ref: "dev/issue-1140-test-settings"
+          submodules: true
+      - name: "Create external volumes"
         run: |
-          sudo apt-get --quiet update
-          sudo apt-get install --quiet --yes build-essential \
-            libmysqlclient-dev libsasl2-dev libldap2-dev libssl-dev \
-            p7zip-full unar libxml2-dev libxslt1-dev
-      - name: "Get pip cache dir"
-        id: "pip-cache"
+          make -C hack/ create-volumes
+      - name: "Build containers"
         run: |
-          echo "::set-output name=dir::$(pip cache dir)"
-      - name: "Cache pip packages"
-        uses: "actions/cache@v2"
-        with:
-          path: "${{ steps.pip-cache.outputs.dir }}"
-          key: "${{ runner.os }}-pip-${{ hashFiles('**/test.txt') }}"
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: "Install tox"
+          make -C hack/ test-build
+      - name: "Run make rule"
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
-      - name: "Run tox"
-        env:
-          TOXENV: ${{ matrix.toxenv }}
-        run: |
-          tox
+          make -C hack/ test-${{ matrix.rule }} TOXARGS='--parallel'
   frontend:
     name: "Test frontend"
     runs-on: "ubuntu-18.04"
@@ -64,6 +43,8 @@ jobs:
     steps:
       - name: "Check out repository"
         uses: "actions/checkout@v2"
+        with:
+          ref: "dev/issue-1140-test-settings"
       - name: "Set up Node JS"
         uses: "actions/setup-node@v2-beta"
         with:
@@ -87,6 +68,8 @@ jobs:
     steps:
       - name: "Check out repository"
         uses: "actions/checkout@v2"
+        with:
+          ref: "dev/issue-1140-test-settings"
       - name: "Set up Python 3.7"
         uses: "actions/setup-python@v2"
         with:
