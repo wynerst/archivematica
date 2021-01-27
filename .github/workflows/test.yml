@@ -10,11 +10,12 @@ jobs:
   test:
     name: "Test ${{ matrix.rule }}"
     runs-on: "ubuntu-18.04"
+    continue-on-error: true
     strategy:
       matrix:
         rule:
-          - mcpserver
-          - mcpclient
+          - mcp-server
+          - mcp-client
           - dashboard
           - storage-service
           - archivematica-common
