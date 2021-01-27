@@ -49,7 +49,7 @@ start-mysql: test-build
 					/src/hack/wait-for-it.sh mysql:3306 --timeout=30)
 
 define create_db
-	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e '\
+	docker-compose exec -T mysql mysql -hlocalhost -uroot -p12345 -e '\
 		DROP DATABASE IF EXISTS `$(1)`; \
 		CREATE DATABASE `$(1)`; \
 		GRANT ALL ON `$(1)`.* TO "archivematica"@"%" IDENTIFIED BY "demo";'
