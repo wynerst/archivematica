@@ -15,6 +15,8 @@ CALLER_GID=$(shell id -g)
 SRCDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../src)
 
 TOXARGS ?=
+NULL :=
+SPACE := $(NULL) $(NULL)
 
 define compose_amauat
 	docker-compose -f docker-compose.yml -f docker-compose.acceptance-tests.yml $(1)
@@ -24,20 +26,37 @@ define compose_tests
 	docker-compose -f docker-compose.yml -f docker-compose.tests.yml $(1)
 endef
 
-empty :=
-space := $(empty) $(empty)
-define toxenvs
+define run_toxenvs
 	$(call compose_tests, \
 		run \
-			-e PRE_COMMAND="{toxinidir}/hack/wait-for-it.sh mysql:3306 --timeout=30" \
 			-e DJANGO_SETTINGS_MODULE=settings.testmysql \
 			--user $(CALLER_UID):$(CALLER_GID) \
 			--workdir /src \
 			--rm \
 			--entrypoint tox \
 				archivematica-tests \
-					$(subst $(space), -e ,$(space)$(1)) \
+					$(subst $(SPACE), -e ,$(SPACE)$(1)) \
 					$(TOXARGS))
+endef
+
+start-mysql: test-build
+	$(call compose_tests, \
+		run \
+			--user $(CALLER_UID):$(CALLER_GID) \
+			--rm \
+			--entrypoint bash \
+				archivematica-tests \
+					/src/hack/wait-for-it.sh mysql:3306 --timeout=30)
+
+define create_db
+	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e '\
+		DROP DATABASE IF EXISTS `$(1)`; \
+		CREATE DATABASE `$(1)`; \
+		GRANT ALL ON `$(1)`.* TO "archivematica"@"%" IDENTIFIED BY "demo";'
+endef
+
+define drop_db
+	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e 'DROP DATABASE IF EXISTS `$(1)`;'
 endef
 
 create-volumes:  ## Create external data volumes.
@@ -183,63 +202,52 @@ flush-search:  ## Delete Elasticsearch indices.
 flush-logs:  ## Delete container logs - requires root privileges.
 	@./helpers/flush-docker-logs.sh
 
-define create_db
-	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e '\
-		DROP DATABASE IF EXISTS `$(1)`; \
-		CREATE DATABASE `$(1)`; \
-		GRANT ALL ON `$(1)`.* TO "archivematica"@"%" IDENTIFIED BY "demo";'
-endef
-
-define drop_db
-	docker-compose exec mysql mysql -hlocalhost -uroot -p12345 -e 'DROP DATABASE IF EXISTS `$(1)`;'
-endef
-
 # These include the database names used in the settings.testmysql
 # modules plus the prefixed and suffixed variations used by Django and
 # tox
 __TEST_DBS := DASHBOARDTEST MCPCLIENTTEST MCPSERVERTEST SSTEST test_DASHBOARDTEST test_DASHBOARDTEST_archivematica-common test_DASHBOARDTEST_dashboard test_MCP test_MCPCLIENTTEST test_MCPCLIENTTEST_mcpclient test_MCPSERVERTEST test_MCPSERVERTEST_mcpserver test_SS test_SSTEST test_SSTEST_storage-service
-flush-test-dbs: test-build
+flush-test-dbs: start-mysql
 	$(foreach test_db,$(__TEST_DBS),$(call drop_db,$(test_db));)
 
 test-build:  ## Build archivematica-tests image.
 	$(call compose_tests,build mysql archivematica-tests)
 
 __TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common
-test-all: test-build  ## Run all tests.
-	$(call toxenvs,$(__TOXENVS_ALL))
+test-all: start-mysql  ## Run all tests.
+	$(call run_toxenvs,$(__TOXENVS_ALL))
 
 __TOXENVS_MCPSERVER := mcpserver
-test-mcp-server: test-build  ## Run MCPServer tests.
-	$(call toxenvs,$(__TOXENVS_MCPSERVER))
+test-mcp-server: start-mysql  ## Run MCPServer tests.
+	$(call run_toxenvs,$(__TOXENVS_MCPSERVER))
 
 __TOXENVS_MCPCLIENT = mcpclient mcpclient-ensure-no-mutable-globals
-test-mcp-client: test-build  ## Run MCPClient tests.
-	$(call toxenvs,$(__TOXENVS_MCPCLIENT))
+test-mcp-client: start-mysql  ## Run MCPClient tests.
+	$(call run_toxenvs,$(__TOXENVS_MCPCLIENT))
 
 __TOXENVS_DASHBOARD = dashboard
-test-dashboard: test-build  ## Run Dashboard tests.
-	$(call toxenvs,$(__TOXENVS_DASHBOARD))
+test-dashboard: start-mysql  ## Run Dashboard tests.
+	$(call run_toxenvs,$(__TOXENVS_DASHBOARD))
 
 __TOXENVS_STORAGE_SERVICE = storage-service
-test-storage-service: test-build  ## Run Storage Service tests.
-	$(call toxenvs,$(__TOXENVS_STORAGE_SERVICE))
+test-storage-service: start-mysql  ## Run Storage Service tests.
+	$(call run_toxenvs,$(__TOXENVS_STORAGE_SERVICE))
 
 test-storage-service-integration:  ## Run Storage Service unit and integration tests using MySQL and MinIO.
 	$(CURDIR)/submodules/archivematica-storage-service/integration/run.sh
 
 __TOXENVS_ARCHIVEMATICA_COMMON = archivematica-common
-test-archivematica-common: test-build  ## Run Archivematica Common tests.
-	$(call toxenvs,$(__TOXENVS_ARCHIVEMATICA_COMMON))
+test-archivematica-common: start-mysql  ## Run Archivematica Common tests.
+	$(call run_toxenvs,$(__TOXENVS_ARCHIVEMATICA_COMMON))
 
 __TOXENVS_CHECKFORMIGRATIONS = checkformigrations-dashboard checkformigrations-storage-service
-test-checkformigrations: test-build  ## Check there are no pending migrations.
+test-checkformigrations: start-mysql  ## Check there are no pending migrations.
 	$(call create_db,DASHBOARDTEST)
 	$(call create_db,SSTEST)
-	$(call toxenvs,$(__TOXENVS_CHECKFORMIGRATIONS))
+	$(call run_toxenvs,$(__TOXENVS_CHECKFORMIGRATIONS))
 
 __TOXENVS_LINTING = linting
-test-linting: test-build  ## Check linting.
-	$(call toxenvs,$(__TOXENVS_LINTING))
+test-linting:  ## Check linting.
+	$(call run_toxenvs,$(__TOXENVS_LINTING))
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \
