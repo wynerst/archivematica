@@ -66,9 +66,6 @@ jobs:
           load: true
           cache-from: type=local,src=/tmp/.docker-cache-old
           cache-to: type=local,dest=/tmp/.docker-cache-new,mode=max
-      - name: "List docker images"
-        run: |
-          docker image ls --no-trunc
       - name: "Create external volumes"
         run: |
           make -C hack/ create-volumes
