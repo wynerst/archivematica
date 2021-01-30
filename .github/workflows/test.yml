@@ -17,6 +17,7 @@ jobs:
           - mcp-server
           - mcp-client
           - dashboard
+          - archivematica-common
     steps:
       - name: "Check out repository"
         uses: "actions/checkout@v2"
