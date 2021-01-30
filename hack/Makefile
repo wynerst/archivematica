@@ -210,7 +210,11 @@ flush-test-dbs: start-mysql
 	$(foreach test_db,$(__TEST_DBS),$(call drop_db,$(test_db));)
 
 test-build:  ## Build archivematica-tests image.
-	$(call compose_tests,build mysql archivematica-tests)
+	docker build \
+		-t archivematica-tests \
+		-f $(CURDIR)/Dockerfile \
+		--build-arg TARGET=archivematica-tests \
+			../
 
 __TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common
 test-all: start-mysql  ## Run all tests.
