@@ -88,7 +88,10 @@ jobs:
           make -C hack/ test-${{ matrix.rule }}
         env:
           MYSQL_VOLUME: "/tmp/.mysql-data"
-      - name: "Set newest cache"
+      - name: "Set newest docker cache"
         run: |
           rm -rf /tmp/.docker-cache-old
           mv /tmp/.docker-cache-new /tmp/.docker-cache-old
+      - name: "Set permissions on MySQL data directory"
+        run: |
+          sudo chmod -R 777 /tmp/.mysql-data
