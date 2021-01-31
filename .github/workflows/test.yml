@@ -19,6 +19,7 @@ jobs:
           - dashboard
           - archivematica-common
           - storage-service
+          - checkformigrations
     steps:
       - name: "Check out repository"
         uses: "actions/checkout@v2"
