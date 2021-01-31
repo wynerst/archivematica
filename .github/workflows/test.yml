@@ -51,6 +51,7 @@ jobs:
             ${{ runner.os }}-mysql-
       - name: "Create MySQL data directory"
         if: steps.mysql_cache.outputs.cache-hit != 'true'
+        continue-on-error: true
         run: |
           mkdir /tmp/.mysql-data
       - name: "Set permissions on MySQL data directory"
