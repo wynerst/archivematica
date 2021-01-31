@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "qa/**"
+      - "stable/**"
       - "dev/issue-1140-test-settings"
 jobs:
   test:
