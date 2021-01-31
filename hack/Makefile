@@ -36,7 +36,7 @@ define run_toxenvs
 			--entrypoint tox \
 				archivematica-tests \
 					$(subst $(SPACE), -e ,$(SPACE)$(1)) \
-					$(TOXARGS))
+					-vv $(TOXARGS))
 endef
 
 start-mysql: test-build
