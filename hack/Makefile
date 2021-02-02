@@ -30,13 +30,14 @@ define run_toxenvs
 	$(call compose_tests, \
 		run \
 			-e DJANGO_SETTINGS_MODULE=settings.testmysql \
+			-e PYTEST_ADDOPTS=${PYTEST_ADDOPTS} \
 			--user $(CALLER_UID):$(CALLER_GID) \
 			--workdir /src \
 			--rm \
 			--entrypoint tox \
 				archivematica-tests \
 					$(subst $(SPACE), -e ,$(SPACE)$(1)) \
-					-vv $(TOXARGS))
+					$(TOXARGS))
 endef
 
 start-mysql: test-build

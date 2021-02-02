@@ -89,6 +89,7 @@ jobs:
           make -C hack/ test-${{ matrix.rule }}
         env:
           MYSQL_VOLUME: "/tmp/.mysql-data"
+          PYTEST_ADDOPTS: "-vv"
       - name: "Set newest docker cache"
         run: |
           rm -rf /tmp/.docker-cache-old
