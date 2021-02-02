@@ -71,8 +71,9 @@ jobs:
           make -C hack/ create-volumes
       - name: "Run make rule"
         run: |
-          make -C hack/ test-${{ matrix.rule }} TOXARGS=-vv
+          make -C hack/ test-${{ matrix.rule }}
         env:
+          TOXARGS: -vv
           PYTEST_ADDOPTS: -vv
       - name: "Set newest docker cache"
         run: |

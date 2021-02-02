@@ -14,7 +14,6 @@ CALLER_GID=$(shell id -g)
 
 SRCDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../src)
 
-TOXARGS ?=
 NULL :=
 SPACE := $(NULL) $(NULL)
 
@@ -37,7 +36,7 @@ define run_toxenvs
 			--entrypoint tox \
 				archivematica-tests \
 					$(subst $(SPACE), -e ,$(SPACE)$(1)) \
-					$(TOXARGS))
+					${TOXARGS})
 endef
 
 start-mysql: test-build
