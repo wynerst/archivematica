@@ -11,8 +11,6 @@ jobs:
   test:
     name: "Test ${{ matrix.rule }}"
     runs-on: "ubuntu-18.04"
-    # Remove continue-on-error once checkformigrations passes
-    continue-on-error: true
     strategy:
       matrix:
         rule:

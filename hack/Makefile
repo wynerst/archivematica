@@ -217,10 +217,6 @@ test-build:  ## Build archivematica-tests image.
 		--build-arg TARGET=archivematica-tests \
 			../
 
-__TOXENVS_ALL := mcpserver mcpclient mcpclient-ensure-no-mutable-globals dashboard storage-service archivematica-common
-test-all: start-mysql  ## Run all tests.
-	$(call run_toxenvs,$(__TOXENVS_ALL))
-
 __TOXENVS_MCPSERVER := mcpserver
 test-mcp-server: start-mysql  ## Run MCPServer tests.
 	$(call run_toxenvs,$(__TOXENVS_MCPSERVER))
@@ -253,6 +249,10 @@ test-checkformigrations: start-mysql  ## Check there are no pending migrations.
 __TOXENVS_LINTING = linting
 test-linting:  ## Check linting.
 	$(call run_toxenvs,$(__TOXENVS_LINTING))
+
+__TOXENVS_ALL := $(__TOXENVS_MCPSERVER) $(__TOXENVS_MCPCLIENT) $(__TOXENVS_DASHBOARD) $(__TOXENVS_STORAGE_SERVICE) $(__TOXENVS_ARCHIVEMATICA_COMMON)
+test-all: start-mysql  ## Run all tests.
+	$(call run_toxenvs,$(__TOXENVS_ALL))
 
 test-at-build:  ## AMAUAT: build image.
 	$(call compose_amauat, \

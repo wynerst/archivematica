@@ -27,13 +27,13 @@ services:
   mysql:
     image: "percona:5.6"
     user: "mysql"
+    command: "--character-set-server=utf8 --collation-server=utf8_general_ci"
     environment:
       MYSQL_ROOT_PASSWORD: "12345"
       # These are used in the settings.testmysql modules
       MYSQL_USER: "archivematica"
       MYSQL_PASSWORD: "demo"
     volumes:
-      - "./etc/mysql/custom.cnf:/etc/my.cnf.d/custom.cnf:ro"
       - "./etc/mysql/tuning.cnf:/etc/my.cnf.d/tuning.cnf:ro"
       - "mysql_data:/var/lib/mysql"
     ports:
