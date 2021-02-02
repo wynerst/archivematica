@@ -25,7 +25,9 @@ jobs:
         uses: "actions/checkout@v2"
         with:
           ref: "dev/issue-1140-test-settings"
-          submodules: true
+      - name: "Check out the archivematica-storage-service submodule"
+        run: |
+          git submodule update --init hack/submodules/archivematica-storage-service/
       - name: "Set up pip cache"
         uses: "actions/cache@v2"
         with:
