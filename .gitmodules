@@ -1,7 +1,7 @@
 [submodule "hack/submodules/archivematica-storage-service"]
 	path = hack/submodules/archivematica-storage-service
 	url = https://github.com/artefactual/archivematica-storage-service
-	branch = dev/issue-1140-test-settings
+	branch = qa/0.x
 [submodule "hack/submodules/archivematica-acceptance-tests"]
 	path = hack/submodules/archivematica-acceptance-tests
 	url = https://github.com/artefactual-labs/archivematica-acceptance-tests

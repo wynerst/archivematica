@@ -35,7 +35,7 @@ services:
     volumes:
       - "./etc/mysql/custom.cnf:/etc/my.cnf.d/custom.cnf:ro"
       - "./etc/mysql/tuning.cnf:/etc/my.cnf.d/tuning.cnf:ro"
-      - "${MYSQL_VOLUME:-mysql_data}:/var/lib/mysql"
+      - "mysql_data:/var/lib/mysql"
     ports:
       - "127.0.0.1:62001:3306"
 
