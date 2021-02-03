@@ -1,0 +1,158 @@
+---
+name: "Acceptance Test"
+on:
+  pull_request:
+  push:
+    branches:
+      - "qa/**"
+      - "stable/**"
+      - "dev/amauat-workflow"
+jobs:
+  test:
+    name: "Test ${{ matrix.tag }}"
+    runs-on: "ubuntu-18.04"
+    strategy:
+      matrix:
+        tag:
+          - "aip-encrypt"
+          - "aip-encrypt-mirror"
+          - "black-box"
+          - "mo-aip-reingest"
+          - "tcc"
+          - "tpc"
+          - "uuids-dirs"
+    steps:
+      - name: "Check out repository"
+        uses: "actions/checkout@v2"
+        with:
+          submodules: true
+      - name: "Set up buildx"
+        uses: "docker/setup-buildx-action@v1"
+        id: buildx
+        with:
+          install: true
+      - name: "Set up AM docker cache"
+        uses: "actions/cache@v2"
+        with:
+          path: /tmp/.docker-am-cache-old
+          key: ${{ runner.os }}-docker-am-${{ matrix.tag }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-am-${{ matrix.tag }}-
+            ${{ runner.os }}-docker-am-
+      - name: "Set up SS docker cache"
+        uses: "actions/cache@v2"
+        with:
+          path: /tmp/.docker-ss-cache-old
+          key: ${{ runner.os }}-docker-ss-${{ matrix.tag }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-ss-${{ matrix.tag }}-
+            ${{ runner.os }}-docker-ss-
+      - name: "Set up AMAUAT docker cache"
+        uses: "actions/cache@v2"
+        with:
+          path: /tmp/.docker-amauat-cache-old
+          key: ${{ runner.os }}-docker-amauat-${{ matrix.tag }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-amauat-${{ matrix.tag }}-
+            ${{ runner.os }}-docker-amauat-
+      - name: "Build archivematica-dashboard image"
+        uses: "docker/build-push-action@v2"
+        with:
+          context: .
+          file: ./hack/Dockerfile
+          target: archivematica-dashboard
+          tags: archivematica-dashboard:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.docker-am-cache-old
+          cache-to: type=local,dest=/tmp/.docker-am-cache-new,mode=max
+      - name: "Build archivematica-mcp-server image"
+        uses: "docker/build-push-action@v2"
+        with:
+          context: .
+          file: ./hack/Dockerfile
+          target: archivematica-mcp-server
+          tags: archivematica-mcp-server:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.docker-am-cache-new
+      - name: "Build archivematica-mcp-client image"
+        uses: "docker/build-push-action@v2"
+        with:
+          context: .
+          file: ./hack/Dockerfile
+          target: archivematica-mcp-client
+          tags: archivematica-mcp-client:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.docker-am-cache-new
+      - name: "Build archivematica-storage-service image"
+        uses: "docker/build-push-action@v2"
+        with:
+          context: ./hack/submodules/archivematica-storage-service
+          file: ./hack/submodules/archivematica-storage-service/Dockerfile
+          tags: archivematica-storage-service:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.docker-ss-cache-old
+          cache-to: type=local,dest=/tmp/.docker-ss-cache-new,mode=max
+      - name: "Build archivematica-acceptance-tests image"
+        uses: "docker/build-push-action@v2"
+        with:
+          context: ./hack/submodules/archivematica-acceptance-tests
+          file: ./hack/submodules/archivematica-acceptance-tests/Dockerfile
+          tags: archivematica-acceptance-tests:latest
+          push: false
+          load: true
+          cache-from: type=local,src=/tmp/.docker-amauat-cache-old
+          cache-to: type=local,dest=/tmp/.docker-amauat-cache-new,mode=max
+      - name: "Set newest AM docker cache"
+        run: |
+          rm -rf /tmp/.docker-am-cache-old
+          mv /tmp/.docker-am-cache-new /tmp/.docker-am-cache-old
+      - name: "Set newest SS docker cache"
+        run: |
+          rm -rf /tmp/.docker-ss-cache-old
+          mv /tmp/.docker-ss-cache-new /tmp/.docker-ss-cache-old
+      - name: "Set newest AMAUAT docker cache"
+        run: |
+          rm -rf /tmp/.docker-amauat-cache-old
+          mv /tmp/.docker-amauat-cache-new /tmp/.docker-amauat-cache-old
+      - name: "Create external volumes"
+        run: |
+          make -C hack/ create-volumes
+      - name: "Start services"
+        run: |
+          docker-compose up -d
+        working-directory: ./hack
+      - name: "Wait for MySQL to start"
+        run: |
+          sleep 20
+      - name: "Bootstrap services"
+        run: |
+          make -C hack/ bootstrap
+      - name: "Restart services"
+        run: |
+          make -C hack/ restart-am-services
+      - name: "Wait for services to restart"
+        run: |
+          sleep 20
+      - name: "Run AMAUAT tag"
+        run: |
+          make -C hack/ test-at-behave TAGS=${{ matrix.tag }}
+      - name: "Display dashboard logs"
+        run: |
+          docker-compose logs -t archivematica-dashboard
+        working-directory: ./hack
+      - name: "Display MCPServer logs"
+        run: |
+          docker-compose logs -t archivematica-mcp-server
+        working-directory: ./hack
+      - name: "Display MCPClient logs"
+        run: |
+          docker-compose logs -t archivematica-mcp-client
+        working-directory: ./hack
+      - name: "Display Storage Service logs"
+        run: |
+          docker-compose logs -t archivematica-storage-service
+        working-directory: ./hack
