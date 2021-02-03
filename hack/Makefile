@@ -319,6 +319,14 @@ test-frontend:  ## Run Dashboard JS tests.
 		--build-arg TARGET=archivematica-dashboard-testing \
 			../
 	docker run \
+		-e HOME=/tmp/yarn-config \
+		--rm \
+		--user $(CALLER_UID):$(CALLER_GID) \
+		--volume "$(SRCDIR)/dashboard:/src/src/dashboard" \
+		--entrypoint yarn \
+			archivematica-dashboard-testing \
+				--cwd=/src/src/dashboard/frontend install --frozen-lockfile
+	docker run \
 		--rm \
 		--volume "$(SRCDIR)/dashboard/frontend:/src/src/dashboard/frontend" \
 			archivematica-dashboard-testing
